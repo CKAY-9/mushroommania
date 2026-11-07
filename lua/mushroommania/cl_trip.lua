@@ -55,38 +55,14 @@ end
 local MAT_SPIRAL = unlit("mm_trip_spiral", { ["$translucent"] = 1 })
 MAT_SPIRAL:SetTexture("$basetexture", pngTexture("mushroommania/spiral.png"))
 
--- White centre fading to black: masks the mosaic and darkens the floor under it
-local MAT_DISK = unlit("mm_trip_disk")
-MAT_DISK:SetTexture("$basetexture", pngTexture("mushroommania/softdisk.png"))
+-- Black with a soft round alpha falloff: darkens the floor under the light
+local MAT_SHADOW = unlit("mm_trip_shadow", { ["$translucent"] = 1 })
+MAT_SHADOW:SetTexture("$basetexture", pngTexture("mushroommania/shadowdisk.png"))
 
-local MAT_TECH = unlit("mm_trip_lamp")
-local MAT_GLOW = Material("sprites/light_glow02_add")
-local SMOKE    = "particle/particle_smokegrenade"
-
--- The lamp's mosaic pre-masked into a soft circle, drawn additively on the floor
-local poolRT, MAT_POOL
-local function buildPool()
-    if not poolRT then
-        poolRT = GetRenderTarget("mm_trip_pool", 512, 512)
-        MAT_POOL = unlit("mm_trip_pool", { ["$additive"] = 1 })
-        MAT_POOL:SetTexture("$basetexture", poolRT)
-    end
-    MAT_TECH:SetTexture("$basetexture", cfg().Vision.LampTexture)
-
-    render.PushRenderTarget(poolRT)
-    render.Clear(0, 0, 0, 255)
-    cam.Start2D()
-        surface.SetDrawColor(255, 255, 255)
-        surface.SetMaterial(MAT_TECH)
-        surface.DrawTexturedRect(0, 0, 512, 512)
-        -- Multiply by the soft disk
-        render.OverrideBlend(true, BLEND_DST_COLOR, BLEND_ZERO, BLENDFUNC_ADD)
-        surface.SetMaterial(MAT_DISK)
-        surface.DrawTexturedRect(0, 0, 512, 512)
-        render.OverrideBlend(false)
-    cam.End2D()
-    render.PopRenderTarget()
-end
+-- The lamp's mosaic, added on top. Flashlight textures already fade to black at the edge
+local MAT_MOSAIC = unlit("mm_trip_mosaic", { ["$additive"] = 1 })
+local MAT_GLOW   = Material("sprites/light_glow02_add")
+local SMOKE      = "particle/particle_smokegrenade"
 
 local function createFonts()
     surface.CreateFont("MM.TripSubtitle", { font = MM.Config.Theme.Font, size = 34, weight = 600, antialias = true })
@@ -131,6 +107,7 @@ end
 
 function Trip.Stop()
     if not S then return end
+    stopSound(S.heartbeat)
     stopSound(S.onsetDrone)
     stopSound(S.voidDrone)
     removeModel(S.npc)
@@ -164,7 +141,7 @@ local function buildVision()
     local sc = {
         eye      = Vector(0, 0, 64),
         stop     = fwd * V.StopDistance,
-        pool     = fwd * (V.StopDistance + 20),
+        pool     = fwd * (V.StopDistance + 10),
     }
     sc.from    = sc.stop + fwd * V.WalkDistance + right * 40
     sc.lampPos = sc.pool + fwd * 60 + right * 110 + UP * 95
@@ -172,7 +149,8 @@ local function buildVision()
     S.scene = sc
 
     removeModel(S.lamp)
-    S.lamp = ClientsideModel(V.LampModel, RENDERGROUP_OPAQUE)
+    -- The lamp itself is invisible unless a model is set: only its mosaic shows
+    S.lamp = V.LampModel and V.LampModel ~= "" and ClientsideModel(V.LampModel, RENDERGROUP_OPAQUE) or nil
     if IsValid(S.lamp) then
         S.lamp:SetNoDraw(true)
         S.lamp:SetPos(sc.lampPos)
@@ -228,9 +206,14 @@ local ENTER = {
             S.onsetDrone:ChangeVolume(0.6, S.tl.onset[2] - S.tl.onset[1])
             S.onsetDrone:ChangePitch(150, S.tl.onset[2] - S.tl.onset[1])
         end
-        S.nextBeat = 0
+        -- The heartbeat wav loops on its own: one patch, sped up through the onset
+        local onset = S.tl.onset[2] - S.tl.onset[1]
+        S.heartbeat = loop(snd.Heartbeat, 0.9, 90)
+        if S.heartbeat then S.heartbeat:ChangePitch(140, onset) end
     end,
     white = function()
+        stopSound(S.heartbeat, 0.5)
+        S.heartbeat = nil
         setDSP(cfg().VisionDSP)
         if S.onsetDrone then
             S.onsetDrone:ChangeVolume(0.2, 1.5)
@@ -263,6 +246,7 @@ local ENTER = {
     end,
     ["return"] = function()
         setDSP(0)
+        stopSound(S.heartbeat)
         stopSound(S.onsetDrone)
         stopSound(S.voidDrone)
         S.onsetDrone, S.voidDrone = nil, nil
@@ -358,13 +342,7 @@ hook.Add("Think", "MushroomMania.Trip", function()
         if ENTER[phase] then ENTER[phase]() end
     end
 
-    if phase == "onset" then
-        local beat = cfg().Sounds.Heartbeat
-        if beat ~= "" and CurTime() >= S.nextBeat then
-            surface.PlaySound(beat)
-            S.nextBeat = CurTime() + Lerp(pt / (S.tl.onset[2] - S.tl.onset[1]), 1.1, 0.55)
-        end
-    elseif phase == "vision" or phase == "dim" then
+    if phase == "vision" or phase == "dim" then
         updateNPC(t - S.tl.vision[1])
     end
 end)
@@ -399,10 +377,7 @@ local function drawVision(t, angles, fov)
     render.Clear(255, 255, 255, 255, true, true)
     if not sc then return end
 
-    if not S.poolBuilt then
-        buildPool()
-        S.poolBuilt = true
-    end
+    MAT_MOSAIC:SetTexture("$basetexture", V.LampTexture)
 
     -- The lamp flickers on, then stays lit
     local on = t < 0.6 and ((math.sin(t * 70) > -0.2) and smooth(t / 0.15) or 0.25) or 1
@@ -413,19 +388,15 @@ local function drawVision(t, angles, fov)
     cam.Start3D(sc.eye, angles, fov)
         -- Floor: darken a soft circle, then add the mosaic on top of it
         cam.IgnoreZ(true)
-        render.SetMaterial(MAT_DISK)
-        render.OverrideBlend(true, BLEND_ZERO, BLEND_ONE_MINUS_SRC_COLOR, BLENDFUNC_ADD)
-        local k = V.PoolDarken * on * 255
-        render.DrawQuadEasy(sc.pool, UP, V.PoolSize, V.PoolSize, Color(k, k, k), rot)
+        render.SetMaterial(MAT_SHADOW)
+        render.DrawQuadEasy(sc.pool, UP, V.PoolSize * 1.1, V.PoolSize * 1.1, Color(255, 255, 255, V.PoolDarken * on * 255), rot)
         if npcPos then
             -- Contact shadow so he stands on something
             local walkIn = smooth((t - V.WalkDelay + 0.5) / 1.5)
-            local s = 80 * walkIn
-            render.DrawQuadEasy(npcPos + UP * 0.2, UP, 70, 70, Color(s, s, s), 0)
+            render.DrawQuadEasy(npcPos + UP * 0.2, UP, 70, 70, Color(255, 255, 255, 110 * walkIn), 0)
         end
-        render.OverrideBlend(false)
 
-        render.SetMaterial(MAT_POOL)
+        render.SetMaterial(MAT_MOSAIC)
         render.DrawQuadEasy(sc.pool + UP * 0.4, UP, V.PoolSize, V.PoolSize,
             Color(tint.r * on, tint.g * on, tint.b * on), rot)
         cam.IgnoreZ(false)
@@ -519,9 +490,16 @@ hook.Add("RenderScene", "MushroomMania.Trip", function(origin, angles, fov)
         drawVision(t, angles, fov)
         return true
     elseif phase == "dim" then
-        drawVision(S.t - S.tl.vision[1], angles, fov)
-        -- To white, then down to black
+        -- Camera shake that builds up towards the cut to black
         local f = t / dur
+        local amp = (cfg().Shake or 0) * smooth(f / 0.7)
+        local rt = RealTime()
+        local shaken = Angle(
+            angles.p + amp * (math.sin(rt * 31) * 0.6 + math.sin(rt * 47 + 1) * 0.4),
+            angles.y + amp * (math.sin(rt * 27 + 2) * 0.6 + math.sin(rt * 53 + 3) * 0.4),
+            angles.r + amp * 0.8 * math.sin(rt * 19 + 4))
+        drawVision(S.t - S.tl.vision[1], shaken, fov)
+        -- To white, then down to black
         local c = 255 * (1 - smooth((f - 0.35) / 0.65))
         cam.Start2D()
             overlay(c, c, c, f / 0.35)

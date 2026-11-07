@@ -350,27 +350,27 @@ C.Trip = {
     Phases = {
         Onset     = 5,     -- Vision gets brighter until it's pure white
         White     = 2,     -- * Pure white
-        Vision    = 16,    -- * The lamp appears and the Mushroom Enthusiast walks up
-        VisionMin = 13,    -- The vision never runs shorter than this (enough for the walk + line)
+        Vision    = 11,    -- * The lamp appears and the Mushroom Enthusiast walks up
+        VisionMin = 10,    -- The vision never runs shorter than this (enough for the walk + line)
         ToVoid    = 2.5,   -- White fades to black
-        Void      = 12,    -- * Out of body: floating above yourself in a black void
+        Void      = 9,     -- * Out of body: floating above yourself in a black void
         BlackHold = 2,     -- Pure black
         Return    = 3,     -- Fade back into reality
-        Buzz      = 45,    -- * Afterglow: subtle colour shifts, still slow and floaty
+        Buzz      = 25,    -- * Afterglow: subtle colour shifts, still slow and floaty
     },
 
     -- The vision (white room)
     Vision = {
         LampTexture = "effects/flashlight/tech",
-        LampModel   = "models/maxofs2d/lamp_flashlight.mdl",
-        PoolSize    = 240,     -- Size of the projected mosaic on the floor
+        LampModel   = "",      -- "" = invisible lamp (only the mosaic shows). e.g. "models/maxofs2d/lamp_flashlight.mdl"
+        PoolSize    = 320,     -- Size of the projected mosaic on the floor
         PoolDarken  = 0.85,    -- How dark the floor under the light gets before the colours are added (0-1)
         PoolSpin    = 4,       -- Degrees per second the mosaic rotates
         HueSpeed    = 25,      -- Degrees per second the light's tint drifts
         HueSat      = 0.25,    -- Strength of that tint (0 = none)
         WalkDelay   = 1.2,     -- Seconds after the lamp before the Enthusiast starts walking
-        WalkTime    = 6,       -- Seconds to walk up to you
-        WalkDistance = 420,
+        WalkTime    = 5,       -- Seconds to walk up to you
+        WalkDistance = 360,
         StopDistance = 110,    -- How close he stops
         SpeakDelay  = 0.6,     -- Seconds after he stops before he talks
         Smile       = 0.6,     -- Grin flex (0-1)
@@ -441,6 +441,7 @@ C.Trip = {
         VoidDrone   = "ambient/atmosphere/drone2lp.wav",
         Sick        = "ambient/levels/canals/toxic_slime_gurgle4.wav",
     },
+    Shake     = 3,     -- Degrees of camera shake as the vision fades from white to black. 0 = none
     VisionDSP = 10,    -- Sound effect preset during the vision (10 = large chamber echo, 0 = none)
     VoidDSP   = 14,    -- During the void (14 = underwater)
 }
