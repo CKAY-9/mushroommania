@@ -1,0 +1,5 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/bmod/mushroommania_monotubandall/pins"
+	"$nocull" "1"
+}

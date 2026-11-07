@@ -1,0 +1,5 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/bmod/mushroommania_fooddrier/vent"
+	"$nocull" "1"
+}

@@ -1,0 +1,6 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/bmod/mushroommania_monotubandall/monotub"
+	"$translucent" "1"
+	"$nocull" "1"
+}

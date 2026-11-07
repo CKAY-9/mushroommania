@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Stem -->
+  <path d="M24 34 C23 44 22 52 21 56 Q32 60 43 56 C42 52 41 44 40 34 Z"
+        fill="#f4ecdc" stroke="#3a2a22" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M26 38 C25.5 45 25 50 24.5 54" fill="none" stroke="#d9cdb6" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Gill shadow under the cap -->
+  <ellipse cx="32" cy="34" rx="21" ry="4" fill="#e3d6bd" stroke="#3a2a22" stroke-width="2"/>
+
+  <!-- Cap -->
+  <path d="M6 33 C6 16 18 6 32 6 C46 6 58 16 58 33 C58 36 54 37 50 36 C40 34 24 34 14 36 C10 37 6 36 6 33 Z"
+        fill="#d8312c" stroke="#3a2a22" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Cap highlight -->
+  <path d="M14 22 C17 15 23 11 29 10" fill="none" stroke="#f0645c" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Spots -->
+  <g fill="#ffffff" stroke="#3a2a22" stroke-width="1.5">
+    <ellipse cx="32" cy="14" rx="5" ry="3.5"/>
+    <ellipse cx="19" cy="25" rx="4" ry="3.5"/>
+    <ellipse cx="45" cy="23" rx="4.5" ry="4"/>
+    <ellipse cx="31" cy="27" rx="3" ry="2.5"/>
+    <ellipse cx="52" cy="31" rx="2.5" ry="2"/>
+    <ellipse cx="11" cy="31" rx="2" ry="1.8"/>
+  </g>
+</svg>
