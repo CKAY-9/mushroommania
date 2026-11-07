@@ -361,9 +361,9 @@ C.Trip = {
 
     -- The vision (white room)
     Vision = {
+        -- The lamp's mosaic, drawn on the floor where the Enthusiast stops
         LampTexture = "effects/flashlight/tech",
-        LampModel   = "",      -- "" = invisible lamp (only the mosaic shows). e.g. "models/maxofs2d/lamp_flashlight.mdl"
-        PoolSize    = 320,     -- Size of the projected mosaic on the floor
+        PoolSize    = 320,     -- Size of the mosaic on the floor
         PoolDarken  = 0.85,    -- How dark the floor under the light gets before the colours are added (0-1)
         PoolSpin    = 4,       -- Degrees per second the mosaic rotates
         HueSpeed    = 25,      -- Degrees per second the light's tint drifts

@@ -24,6 +24,8 @@ local MM = MushroomMania
 MM.Trip = MM.Trip or {}
 local Trip = MM.Trip
 if Trip.Stop then Trip.Stop() end -- Lua refresh: clean up the old trip
+hook.Remove("CalcView", "MushroomMania.TripVision")        -- From an older version
+hook.Remove("PostDrawEffects", "MushroomMania.TripVision")
 
 local function cfg() return MM.Config.Trip end
 
@@ -61,6 +63,7 @@ MAT_SHADOW:SetTexture("$basetexture", pngTexture("mushroommania/shadowdisk.png")
 
 -- The lamp's mosaic, added on top. Flashlight textures already fade to black at the edge
 local MAT_MOSAIC = unlit("mm_trip_mosaic", { ["$additive"] = 1 })
+
 local MAT_GLOW   = Material("sprites/light_glow02_add")
 local SMOKE      = "particle/particle_smokegrenade"
 
@@ -111,7 +114,6 @@ function Trip.Stop()
     stopSound(S.onsetDrone)
     stopSound(S.voidDrone)
     removeModel(S.npc)
-    removeModel(S.lamp)
     setDSP(0)
     S = nil
 end
@@ -131,31 +133,19 @@ local function lookupFlex(ent, name)
     return id and id >= 0 and id or nil
 end
 
--- Builds the white room in front of wherever the player is looking
+-- Builds the white room in front of wherever the player is looking. Nothing
+-- else is drawn there, so it sits around the world origin.
 local function buildVision()
     local V = cfg().Vision
     local yaw = EyeAngles().y
     local fwd = Angle(0, yaw, 0):Forward()
     local right = Angle(0, yaw, 0):Right()
 
-    local sc = {
-        eye      = Vector(0, 0, 64),
-        stop     = fwd * V.StopDistance,
-        pool     = fwd * (V.StopDistance + 10),
-    }
-    sc.from    = sc.stop + fwd * V.WalkDistance + right * 40
-    sc.lampPos = sc.pool + fwd * 60 + right * 110 + UP * 95
-    sc.lampAng = (sc.pool - sc.lampPos):Angle()
+    local sc = { eye = Vector(0, 0, 64) }
+    sc.stop = fwd * V.StopDistance
+    sc.pool = fwd * (V.StopDistance + 10)
+    sc.from = sc.stop + fwd * V.WalkDistance + right * 40
     S.scene = sc
-
-    removeModel(S.lamp)
-    -- The lamp itself is invisible unless a model is set: only its mosaic shows
-    S.lamp = V.LampModel and V.LampModel ~= "" and ClientsideModel(V.LampModel, RENDERGROUP_OPAQUE) or nil
-    if IsValid(S.lamp) then
-        S.lamp:SetNoDraw(true)
-        S.lamp:SetPos(sc.lampPos)
-        S.lamp:SetAngles(sc.lampAng)
-    end
 
     removeModel(S.npc)
     local npc = ClientsideModel(MM.Config.Enthusiast.Model, RENDERGROUP_OPAQUE)
@@ -233,7 +223,6 @@ local ENTER = {
         stopSound(S.onsetDrone)
         S.onsetDrone = nil
         removeModel(S.npc)
-        removeModel(S.lamp)
         S.subtitle = nil
         setDSP(cfg().VoidDSP)
         buildVoid()
@@ -368,10 +357,6 @@ local function drawSubtitle()
     draw.SimpleText(S.subtitle, "MM.TripSubtitle", x, y, Color(T.Text.r, T.Text.g, T.Text.b, 255 * a), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 end
 
-local function hueColor(offset, sat)
-    return HSVToColor((CurTime() * cfg().Vision.HueSpeed + (offset or 0)) % 360, sat, 1)
-end
-
 local function drawVision(t, angles, fov)
     local V, sc = cfg().Vision, S.scene
     render.Clear(255, 255, 255, 255, true, true)
@@ -382,18 +367,17 @@ local function drawVision(t, angles, fov)
     -- The lamp flickers on, then stays lit
     local on = t < 0.6 and ((math.sin(t * 70) > -0.2) and smooth(t / 0.15) or 0.25) or 1
     local rot = t * V.PoolSpin
-    local tint = hueColor(0, V.HueSat)
-    local npcPos = IsValid(S.npc) and S.npc:GetPos()
+    local tint = HSVToColor((CurTime() * V.HueSpeed) % 360, V.HueSat, 1)
+    local walkIn = smooth((t - V.WalkDelay + 0.5) / 1.5)
 
     cam.Start3D(sc.eye, angles, fov)
         -- Floor: darken a soft circle, then add the mosaic on top of it
         cam.IgnoreZ(true)
         render.SetMaterial(MAT_SHADOW)
         render.DrawQuadEasy(sc.pool, UP, V.PoolSize * 1.1, V.PoolSize * 1.1, Color(255, 255, 255, V.PoolDarken * on * 255), rot)
-        if npcPos then
+        if IsValid(S.npc) then
             -- Contact shadow so he stands on something
-            local walkIn = smooth((t - V.WalkDelay + 0.5) / 1.5)
-            render.DrawQuadEasy(npcPos + UP * 0.2, UP, 70, 70, Color(255, 255, 255, 110 * walkIn), 0)
+            render.DrawQuadEasy(S.npc:GetPos() + UP * 0.2, UP, 70, 70, Color(255, 255, 255, 110 * walkIn), 0)
         end
 
         render.SetMaterial(MAT_MOSAIC)
@@ -401,33 +385,21 @@ local function drawVision(t, angles, fov)
             Color(tint.r * on, tint.g * on, tint.b * on), rot)
         cam.IgnoreZ(false)
 
-        -- Models: flat bright lighting, tinted by the lamp's colour
+        -- The Enthusiast: flat bright lighting, out of white fog
         render.SuppressEngineLighting(true)
         render.FogMode(MATERIAL_FOG_LINEAR)
         render.FogStart(V.FogStart)
         render.FogEnd(V.FogEnd)
         render.FogMaxDensity(1)
         render.FogColor(255, 255, 255)
-
         render.ResetModelLighting(0.6, 0.6, 0.62)
         render.SetModelLighting(BOX_TOP, 1.15, 1.15, 1.15)
-        local c = hueColor(120, 0.6)
-        local cs = 0.9 * on
-        render.SetModelLighting(BOX_BOTTOM, c.r / 255 * cs, c.g / 255 * cs, c.b / 255 * cs)
 
-        if IsValid(S.lamp) then
-            S.lamp:SetModelScale(math.max(smooth(t / 0.2), 0.01), 0)
-            S.lamp:DrawModel()
-        end
-
-        if IsValid(S.npc) then
-            local fade = smooth((t - V.WalkDelay + 0.5) / 1.5)
-            if fade > 0 then
-                render.SetBlend(fade)
-                S.npc:InvalidateBoneCache()
-                S.npc:DrawModel()
-                render.SetBlend(1)
-            end
+        if IsValid(S.npc) and walkIn > 0 then
+            render.SetBlend(walkIn)
+            S.npc:InvalidateBoneCache()
+            S.npc:DrawModel()
+            render.SetBlend(1)
         end
 
         render.FogMode(MATERIAL_FOG_NONE)
