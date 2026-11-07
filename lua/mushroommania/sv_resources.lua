@@ -21,7 +21,7 @@ local function sendFiles()
         end
     end
 
-    -- Every .vmt / .vtf inside each matching material folder
+    -- Every .vmt / .vtf / .png inside each matching material folder
     for _, pattern in ipairs(cfg.Materials or {}) do
         local parent = dirOf(pattern)
         local _, folders = file.Find(pattern, "GAME")
@@ -29,7 +29,7 @@ local function sendFiles()
             local path = parent .. "/" .. folder .. "/"
             for _, name in ipairs(file.Find(path .. "*", "GAME") or {}) do
                 local ext = string.GetExtensionFromFilename(name)
-                if ext == "vmt" or ext == "vtf" then
+                if ext == "vmt" or ext == "vtf" or ext == "png" then
                     resource.AddSingleFile(path .. name)
                     count = count + 1
                 end

@@ -55,7 +55,7 @@ C.Content = {
     SendFiles  = true,
     -- Every model / material folder matching these is sent (wildcards allowed)
     Models     = { "models/bmod/mushroommania_*.mdl" },
-    Materials  = { "materials/models/bmod/mushroommania_*" },
+    Materials  = { "materials/models/bmod/mushroommania_*", "materials/mushroommania" },
 }
 
 --------------------------------------------------------------------------------
@@ -83,6 +83,8 @@ C.Settings = {
 --                               More than PerfectGrace seconds outside it (in total) caps the grow at the next tier
 --     PerfectGrace    = 5
 --     Glow            = { Color = Color(...), Alpha = 0-255, Size = 1 }   Subtle glow around everything of this strain
+--     TripMultiplier  = 1       Trip length multiplier when eaten (0 = this strain doesn't trip)
+--     TripColor       = Color(...)  Tint of the cloud around a tripper's head (default: shifting pastel colours)
 --------------------------------------------------------------------------------
 C.Species = {
     lionsmane = {
@@ -180,10 +182,11 @@ C.Species = {
 --   ideal range (see C.Grow).
 --------------------------------------------------------------------------------
 C.Qualities = {
-    { Name = "Perfect", Multiplier = 1.10, MinScore = 90, Color = Color(120, 220, 255) },
-    { Name = "Good",    Multiplier = 1.00, MinScore = 70, Color = Color(120, 220, 120) },
-    { Name = "Okay",    Multiplier = 0.80, MinScore = 45, Color = Color(230, 210, 100) },
-    { Name = "Poor",    Multiplier = 0.50, MinScore = 0,  Color = Color(230, 140, 80)  },
+    -- Trip = trip length multiplier when eaten (see C.Trip)
+    { Name = "Perfect", Multiplier = 1.10, MinScore = 90, Color = Color(120, 220, 255), Trip = 1.10 },
+    { Name = "Good",    Multiplier = 1.00, MinScore = 70, Color = Color(120, 220, 120), Trip = 1.00 },
+    { Name = "Okay",    Multiplier = 0.80, MinScore = 45, Color = Color(230, 210, 100), Trip = 0.90 },
+    { Name = "Poor",    Multiplier = 0.50, MinScore = 0,  Color = Color(230, 140, 80),  Trip = 0.80 },
 }
 
 C.Contaminated = {
@@ -191,6 +194,7 @@ C.Contaminated = {
     Multiplier = 0.10,
     Color      = Color(140, 200, 60),
     RejectTime = 600,     -- Seconds every Mushroom Enthusiast refuses a player after selling contaminated mushrooms
+    Trip       = 0,       -- 0 = eating it makes you sick instead of tripping (see C.Trip.Sick)
 }
 
 --------------------------------------------------------------------------------
@@ -322,6 +326,123 @@ C.Enthusiast = {
     AllowPolice   = false,
     BlockedJobs   = {},      -- e.g. { "TEAM_MAYOR" }
     LabelDistance = 600,
+}
+
+--------------------------------------------------------------------------------
+-- Eating mushrooms / trips
+--   E on a mushroom batch eats a dose (Alt+E picks it up instead).
+--   Trip length multiplier = quality Trip (C.Qualities) x DriedMultiplier (if dried)
+--   x species TripMultiplier. It also picks the Enthusiast's voiceline tier.
+--   Only the tripper sees the vision; everyone sees the slow, floaty movement,
+--   spirals over their eyes and a faint cloud around their head.
+--------------------------------------------------------------------------------
+C.Trip = {
+    Enabled         = true,
+    Dose            = 1,       -- Units eaten per press
+    OwnerOnly       = false,   -- Only eat batches you own
+    DriedMultiplier = 1.5,
+
+    -- While tripping (including the afterglow)
+    SpeedMultiplier = 0.6,     -- Walk / run speed
+    Gravity         = 0.45,    -- 1 = normal
+
+    -- Phase lengths in seconds. Starred ones are multiplied by the trip multiplier
+    Phases = {
+        Onset     = 5,     -- Vision gets brighter until it's pure white
+        White     = 2,     -- * Pure white
+        Vision    = 16,    -- * The lamp appears and the Mushroom Enthusiast walks up
+        VisionMin = 13,    -- The vision never runs shorter than this (enough for the walk + line)
+        ToVoid    = 2.5,   -- White fades to black
+        Void      = 12,    -- * Out of body: floating above yourself in a black void
+        BlackHold = 2,     -- Pure black
+        Return    = 3,     -- Fade back into reality
+        Buzz      = 45,    -- * Afterglow: subtle colour shifts, still slow and floaty
+    },
+
+    -- The vision (white room)
+    Vision = {
+        LampTexture = "effects/flashlight/tech",
+        LampModel   = "models/maxofs2d/lamp_flashlight.mdl",
+        PoolSize    = 240,     -- Size of the projected mosaic on the floor
+        PoolDarken  = 0.85,    -- How dark the floor under the light gets before the colours are added (0-1)
+        PoolSpin    = 4,       -- Degrees per second the mosaic rotates
+        HueSpeed    = 25,      -- Degrees per second the light's tint drifts
+        HueSat      = 0.25,    -- Strength of that tint (0 = none)
+        WalkDelay   = 1.2,     -- Seconds after the lamp before the Enthusiast starts walking
+        WalkTime    = 6,       -- Seconds to walk up to you
+        WalkDistance = 420,
+        StopDistance = 110,    -- How close he stops
+        SpeakDelay  = 0.6,     -- Seconds after he stops before he talks
+        Smile       = 0.6,     -- Grin flex (0-1)
+        FogStart    = 180,     -- He walks out of the white fog
+        FogEnd      = 620,
+    },
+
+    -- The out-of-body void
+    Void = {
+        Height = 260,          -- How high above your body the camera floats
+        Spin   = 9,            -- Degrees per second the view turns
+        Motes  = 40,           -- Drifting specks of light
+    },
+
+    -- Voicelines by trip multiplier: the highest tier whose MinIntensity is reached is used
+    -- (raw: 0.8 - 1.1, dried: 1.2 - 1.65 with the default multipliers)
+    Voicelines = {
+        { MinIntensity = 0, Lines = {
+            { "vo/npc/male01/hi01.wav",            "Hi." },
+            { "vo/npc/male01/waitingsomebody.wav", "You waiting for somebody?" },
+            { "vo/npc/male01/answer30.wav",        "You talking to me?" },
+            { "vo/npc/male01/question27.wav",      "I think I ate something bad." },
+        } },
+        { MinIntensity = 1.0, Lines = {
+            { "vo/npc/male01/question05.wav", "Whoa... deja vu!" },
+            { "vo/npc/male01/answer09.wav",   "You're talking to yourself again." },
+            { "vo/npc/male01/question23.wav", "I can't get this tune out of my head." },
+            { "vo/npc/male01/vanswer09.wav",  "That almost made sense." },
+        } },
+        { MinIntensity = 1.3, Lines = {
+            { "vo/npc/male01/question17.wav", "Do you feel it? I feel it!" },
+            { "vo/npc/male01/question06.wav", "Sometimes I dream about cheese." },
+            { "vo/npc/male01/question07.wav", "You smell that? It's freedom." },
+            { "vo/npc/male01/vanswer10.wav",  "Something must be wrong with me, I almost understood that." },
+            { "vo/npc/male01/vquestion01.wav", "Stop looking at me like that." },
+        } },
+    },
+
+    -- What other players see on a tripper
+    Spirals = {
+        Enabled  = true,
+        Size     = 2.4,    -- Units across each spiral
+        Spacing  = 1.35,   -- Distance from the middle of the eyes to each eye
+        Forward  = 0.9,    -- Pushed out from the face so it isn't clipped
+        Spin     = 240,    -- Degrees per second
+        Distance = 800,    -- Not drawn beyond this
+    },
+    Cloud = {
+        Enabled  = true,
+        Rate     = 7,      -- Puffs per second
+        Alpha    = 28,     -- 0-255, keep low for subtle
+        Size     = { 3, 13 }, -- Start / end size
+        Saturation = 0.45, -- Of the shifting pastel colours (when the species has no TripColor)
+        Distance = 1200,
+    },
+
+    -- Eating contaminated mushrooms (quality Trip = 0)
+    Sick = {
+        Damage = 15,
+        Message = "That tasted rotten... you feel sick.",
+    },
+
+    Sounds = {
+        Eat         = "npc/barnacle/barnacle_crunch2.wav",
+        Heartbeat   = "player/heartbeat1.wav",
+        OnsetDrone  = "ambient/levels/citadel/citadel_drone_loop1.wav",
+        LampOn      = "buttons/lightswitch2.wav",
+        VoidDrone   = "ambient/atmosphere/drone2lp.wav",
+        Sick        = "ambient/levels/canals/toxic_slime_gurgle4.wav",
+    },
+    VisionDSP = 10,    -- Sound effect preset during the vision (10 = large chamber echo, 0 = none)
+    VoidDSP   = 14,    -- During the void (14 = underwater)
 }
 
 --------------------------------------------------------------------------------

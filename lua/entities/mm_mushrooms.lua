@@ -49,6 +49,15 @@ if SERVER then
         end
     end
 
+    -- E eats a dose (see Config.Trip); Alt+E picks it up like before
+    function ENT:Use(ply)
+        if not IsValid(ply) or not ply:IsPlayer() then return end
+        if not MM.Config.Trip.Enabled or ply:KeyDown(IN_WALK) then
+            return baseclass.Get("mm_base").Use(self, ply)
+        end
+        MM.Eat(ply, self)
+    end
+
     function ENT:Think()
         if self.MM_DespawnAt then
             if self:IsPlayerHolding() then
@@ -78,5 +87,7 @@ function ENT:GetLabel()
         { text = self:GetDried() and "Dried" or "Raw", color = self:GetDried() and T.Accent or T.TextDim },
         { text = "Quality: " .. q.Name, color = q.Color },
         { text = string.format("%d%s  -  %s", self:GetAmount(), MM.Config.Mushrooms.Unit, MM.FormatMoney(self:GetValue())), color = T.Text },
+        MM.Config.Trip.Enabled and { text = "E to eat  -  Alt+E to carry", color = T.Accent } or nil,
+        MM.Config.Trip.Enabled and { text = "or bring to a Mushroom Enthusiast", color = T.TextDim } or nil,
     }, sp and sp.Color
 end
