@@ -57,12 +57,24 @@ end
 local MAT_SPIRAL = unlit("mm_trip_spiral", { ["$translucent"] = 1 })
 MAT_SPIRAL:SetTexture("$basetexture", pngTexture("mushroommania/spiral.png"))
 
--- Black with a soft round alpha falloff: darkens the floor under the light
-local MAT_SHADOW = unlit("mm_trip_shadow", { ["$translucent"] = 1 })
-MAT_SHADOW:SetTexture("$basetexture", pngTexture("mushroommania/shadowdisk.png"))
+-- White disk fading to black. Drawn with a multiply blend (dest * (1 - src)) so the
+-- bright centre darkens the floor and the black edge leaves it untouched
+-- Uses the png's own material: it's built with its texture bound, unlike a bare CreateMaterial
+local MAT_SHADOW = Material("mushroommania/softdisk.png", "smooth mips")
 
 -- The lamp's mosaic, added on top. Flashlight textures already fade to black at the edge
 local MAT_MOSAIC = unlit("mm_trip_mosaic", { ["$additive"] = 1 })
+
+-- LampTexture may be a .png (loaded through Material) or a plain texture path
+local lampTextures = {}
+local function lampTexture(path)
+    local tex = lampTextures[path]
+    if not tex then
+        tex = string.EndsWith(path, ".png") and pngTexture(path) or path
+        lampTextures[path] = tex
+    end
+    return tex
+end
 
 local MAT_GLOW   = Material("sprites/light_glow02_add")
 local SMOKE      = "particle/particle_smokegrenade"
@@ -362,7 +374,7 @@ local function drawVision(t, angles, fov)
     render.Clear(255, 255, 255, 255, true, true)
     if not sc then return end
 
-    MAT_MOSAIC:SetTexture("$basetexture", V.LampTexture)
+    MAT_MOSAIC:SetTexture("$basetexture", lampTexture(V.LampTexture))
 
     -- The lamp flickers on, then stays lit
     local on = t < 0.6 and ((math.sin(t * 70) > -0.2) and smooth(t / 0.15) or 0.25) or 1
@@ -374,11 +386,15 @@ local function drawVision(t, angles, fov)
         -- Floor: darken a soft circle, then add the mosaic on top of it
         cam.IgnoreZ(true)
         render.SetMaterial(MAT_SHADOW)
-        render.DrawQuadEasy(sc.pool, UP, V.PoolSize * 1.1, V.PoolSize * 1.1, Color(255, 255, 255, V.PoolDarken * on * 255), rot)
+        render.OverrideBlend(true, BLEND_ZERO, BLEND_ONE_MINUS_SRC_COLOR, BLENDFUNC_ADD)
+        local dark = V.PoolDarken * on * 255
+        render.DrawQuadEasy(sc.pool, UP, V.PoolSize * 1.1, V.PoolSize * 1.1, Color(dark, dark, dark), rot)
         if IsValid(S.npc) then
             -- Contact shadow so he stands on something
-            render.DrawQuadEasy(S.npc:GetPos() + UP * 0.2, UP, 70, 70, Color(255, 255, 255, 110 * walkIn), 0)
+            local contact = 110 * walkIn
+            render.DrawQuadEasy(S.npc:GetPos() + UP * 0.2, UP, 70, 70, Color(contact, contact, contact), 0)
         end
+        render.OverrideBlend(false)
 
         render.SetMaterial(MAT_MOSAIC)
         render.DrawQuadEasy(sc.pool + UP * 0.4, UP, V.PoolSize, V.PoolSize,

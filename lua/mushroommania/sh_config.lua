@@ -362,8 +362,8 @@ C.Trip = {
     -- The vision (white room)
     Vision = {
         -- The lamp's mosaic, drawn on the floor where the Enthusiast stops
-        LampTexture = "effects/flashlight/tech",
-        PoolSize    = 320,     -- Size of the mosaic on the floor
+        LampTexture = "mushroommania/mosaic.png", -- .png in materials/, or any texture path
+        PoolSize    = 380,     -- Size of the mosaic on the floor
         PoolDarken  = 0.85,    -- How dark the floor under the light gets before the colours are added (0-1)
         PoolSpin    = 4,       -- Degrees per second the mosaic rotates
         HueSpeed    = 25,      -- Degrees per second the light's tint drifts
