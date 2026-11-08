@@ -1,3 +1,7 @@
+<div align="center">
+   <img src="./splash.png" width=250 height=250 />
+</div>
+
 # Mushroom Mania
 
 Mushroom Mania is a Garry's Mod addon for the DarkRP gamemode where players are able to cultivate different species of Mushrooms.
